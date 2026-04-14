@@ -1,0 +1,12 @@
+{
+  "nodes": [
+    { "nodeId": "e1", "type": "start", "name": "Begin" },
+    { "type": "action", "name": "Missing nodeId" },
+    { "nodeId": "e3", "type": "invalid_type", "name": "Bad Type" },
+    { "nodeId": "e4", "type": "end" }
+  ],
+  "edges": [
+    { "sourceNodeId": "e1", "targetNodeId": "e2" },
+    { "sourceNodeId": "e999", "targetNodeId": "e1" }
+  ]
+}

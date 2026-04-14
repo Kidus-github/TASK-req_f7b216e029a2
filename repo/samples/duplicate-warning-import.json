@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    { "nodeId": "d1", "type": "start", "name": "Start Process", "x": 100, "y": 100 },
+    { "nodeId": "d2", "type": "action", "name": "Do Task", "x": 300, "y": 100 },
+    { "nodeId": "d3", "type": "action", "name": "Do Task", "x": 300, "y": 250 },
+    { "nodeId": "d4", "type": "end", "name": "End", "x": 500, "y": 100 }
+  ],
+  "edges": [
+    { "sourceNodeId": "d1", "targetNodeId": "d2" },
+    { "sourceNodeId": "d1", "targetNodeId": "d3" },
+    { "sourceNodeId": "d2", "targetNodeId": "d4" },
+    { "sourceNodeId": "d3", "targetNodeId": "d4" }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "nodes": [
+    { "nodeId": "n1", "type": "start", "name": "Begin Process", "x": 100, "y": 100 },
+    { "nodeId": "n2", "type": "action", "name": "Review Document", "x": 300, "y": 100 },
+    { "nodeId": "n3", "type": "decision", "name": "Approved?", "x": 500, "y": 100 },
+    { "nodeId": "n4", "type": "action", "name": "Revise Document", "x": 500, "y": 300 },
+    { "nodeId": "n5", "type": "end", "name": "Complete", "x": 700, "y": 100 }
+  ],
+  "edges": [
+    { "sourceNodeId": "n1", "targetNodeId": "n2", "label": "" },
+    { "sourceNodeId": "n2", "targetNodeId": "n3", "label": "" },
+    { "sourceNodeId": "n3", "targetNodeId": "n5", "label": "Yes" },
+    { "sourceNodeId": "n3", "targetNodeId": "n4", "label": "No" },
+    { "sourceNodeId": "n4", "targetNodeId": "n2", "label": "Resubmit" }
+  ]
+}
