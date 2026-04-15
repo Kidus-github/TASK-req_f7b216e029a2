@@ -40,7 +40,16 @@ function base64ToBuffer(b64) {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i)
   }
-  return bytes.buffer
+  // Return the Uint8Array view rather than `bytes.buffer`. Web Crypto
+  // accepts any BufferSource (ArrayBuffer | ArrayBufferView) for PBKDF2
+  // `salt`, AES-GCM `iv`, and ciphertext inputs. Returning the view avoids
+  // the cross-realm `instanceof ArrayBuffer` check that Node 18's
+  // webcrypto runs during algorithm normalization — under Vitest + jsdom
+  // the underlying buffer belongs to the jsdom realm, not Node's, which
+  // made `deriveBits`/`deriveKey` throw
+  // "Failed to normalize algorithm: 'salt' of 'Pbkdf2Params' ... is not
+  // instance of ArrayBuffer, Buffer, TypedArray, or DataView."
+  return bytes
 }
 
 async function importPasswordKey(password) {
