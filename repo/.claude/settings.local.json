@@ -15,7 +15,8 @@
       "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/**)",
       "Bash(node -e \"console.log\\('vite:', require\\('./node_modules/vite/package.json'\\).version\\); console.log\\('vitest:', require\\('./node_modules/vitest/package.json'\\).version\\)\")",
       "Bash(npm test *)",
-      "Bash(bash run_test.sh)"
+      "Bash(bash run_test.sh)",
+      "Bash(node -e \"console.log\\('vite:', require\\('./node_modules/vite/package.json'\\).version\\); console.log\\('vitest:', require\\('./node_modules/vitest/package.json'\\).version\\); console.log\\('@vitejs/plugin-vue:', require\\('./node_modules/@vitejs/plugin-vue/package.json'\\).version\\);\")"
     ]
   }
 }
