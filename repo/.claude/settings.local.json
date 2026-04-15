@@ -12,7 +12,10 @@
       "Bash(npx vitest:*)",
       "Bash(wc -l /c/Users/kidus/OneDrive/Desktop/repo/tests/*.test.js)",
       "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/.tmp/**)",
-      "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/**)"
+      "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/**)",
+      "Bash(node -e \"console.log\\('vite:', require\\('./node_modules/vite/package.json'\\).version\\); console.log\\('vitest:', require\\('./node_modules/vitest/package.json'\\).version\\)\")",
+      "Bash(npm test *)",
+      "Bash(bash run_test.sh)"
     ]
   }
 }
