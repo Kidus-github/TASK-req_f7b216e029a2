@@ -10,7 +10,9 @@
       "Bash(npm install:*)",
       "Bash(npx vite:*)",
       "Bash(npx vitest:*)",
-      "Bash(wc -l /c/Users/kidus/OneDrive/Desktop/repo/tests/*.test.js)"
+      "Bash(wc -l /c/Users/kidus/OneDrive/Desktop/repo/tests/*.test.js)",
+      "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/.tmp/**)",
+      "Read(//c/Users/kidus/OneDrive/Desktop/TASK-req_f7b216e029a2/**)"
     ]
   }
 }
