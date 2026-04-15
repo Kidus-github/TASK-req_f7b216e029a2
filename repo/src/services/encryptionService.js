@@ -5,8 +5,24 @@ const KEY_BYTES = 32
 const AES_ALGORITHM = 'AES-GCM'
 const IV_BYTES = 12
 
+// Cross-environment Web Crypto resolution.
+// Browsers (and Node >= 19) expose Web Crypto as globalThis.crypto with a
+// SubtleCrypto at crypto.subtle. In older Node or in some Vitest/jsdom
+// configurations the global binding is absent or lacks `.subtle`, so we
+// fall back to the `webcrypto` instance from the built-in `node:crypto`
+// module. The fallback is gated on a Node runtime check and uses a
+// `@vite-ignore`'d dynamic import so browser bundlers do not try to inline
+// a Node built-in into client chunks.
+let cryptoImpl = globalThis.crypto
+if (!cryptoImpl || !cryptoImpl.subtle) {
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    const { webcrypto } = await import(/* @vite-ignore */ 'node:crypto')
+    cryptoImpl = webcrypto
+  }
+}
+
 function getRandomBytes(n) {
-  return crypto.getRandomValues(new Uint8Array(n))
+  return cryptoImpl.getRandomValues(new Uint8Array(n))
 }
 
 function bufferToBase64(buf) {
@@ -29,7 +45,7 @@ function base64ToBuffer(b64) {
 
 async function importPasswordKey(password) {
   const enc = new TextEncoder()
-  return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+  return cryptoImpl.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
     'deriveBits',
     'deriveKey',
   ])
@@ -43,7 +59,7 @@ export const encryptionService = {
   async hashPassword(password, saltB64) {
     const baseKey = await importPasswordKey(password)
     const salt = base64ToBuffer(saltB64)
-    const bits = await crypto.subtle.deriveBits(
+    const bits = await cryptoImpl.subtle.deriveBits(
       { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: PBKDF2_HASH },
       baseKey,
       KEY_BYTES * 8
@@ -63,7 +79,7 @@ export const encryptionService = {
   async deriveEncryptionKey(password, encryptionSaltB64) {
     const baseKey = await importPasswordKey(password)
     const salt = base64ToBuffer(encryptionSaltB64)
-    return crypto.subtle.deriveKey(
+    return cryptoImpl.subtle.deriveKey(
       { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: PBKDF2_HASH },
       baseKey,
       { name: AES_ALGORITHM, length: KEY_BYTES * 8 },
@@ -75,7 +91,7 @@ export const encryptionService = {
   async encrypt(cryptoKey, plaintext) {
     const iv = getRandomBytes(IV_BYTES)
     const enc = new TextEncoder()
-    const cipherBuffer = await crypto.subtle.encrypt(
+    const cipherBuffer = await cryptoImpl.subtle.encrypt(
       { name: AES_ALGORITHM, iv },
       cryptoKey,
       enc.encode(plaintext)
@@ -90,7 +106,7 @@ export const encryptionService = {
   async decrypt(cryptoKey, ciphertextB64, ivB64) {
     const iv = base64ToBuffer(ivB64)
     const cipherBuffer = base64ToBuffer(ciphertextB64)
-    const plainBuffer = await crypto.subtle.decrypt(
+    const plainBuffer = await cryptoImpl.subtle.decrypt(
       { name: AES_ALGORITHM, iv },
       cryptoKey,
       cipherBuffer
