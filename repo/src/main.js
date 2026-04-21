@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
+import { ensureDemoSeeded } from '@/services/demoSeedService'
 import './style.css'
 
 export function registerServiceWorker(nav = navigator, win = window) {
@@ -15,8 +16,17 @@ export function registerServiceWorker(nav = navigator, win = window) {
   })
 }
 
-const app = createApp(App)
-app.use(createPinia())
-app.use(router)
-app.mount('#app')
-registerServiceWorker()
+export async function bootstrapApplication() {
+  await ensureDemoSeeded()
+
+  const app = createApp(App)
+  app.use(createPinia())
+  app.use(router)
+  app.mount('#app')
+  registerServiceWorker()
+  return app
+}
+
+bootstrapApplication().catch((error) => {
+  console.error('Failed to bootstrap FlowForge.', error)
+})

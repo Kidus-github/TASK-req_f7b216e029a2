@@ -38,8 +38,12 @@ function toggleTheme() {
       <router-link to="/profile" style="color: var(--ff-text); text-decoration: none; font-size: 13px">
         {{ auth.displayName }}
       </router-link>
-      <button class="btn btn-sm btn-secondary" @click="toggleTheme">
-        {{ prefs.theme === 'dark' ? '☀' : '☾' }}
+      <button
+        class="btn btn-sm btn-secondary"
+        :aria-label="prefs.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+        @click="toggleTheme"
+      >
+        {{ prefs.theme === 'dark' ? 'Light' : 'Dark' }}
       </button>
       <button class="btn btn-sm btn-secondary" @click="auth.lock()">Lock</button>
       <button class="btn btn-sm btn-secondary" @click="handleLogout">Logout</button>

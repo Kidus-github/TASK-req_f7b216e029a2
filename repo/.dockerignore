@@ -7,6 +7,8 @@ Dockerfile.prod
 docker-compose.yml
 npm-debug.log
 coverage
+playwright-report
+test-results
 .vscode
 .idea
 *.local

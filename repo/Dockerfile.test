@@ -1,0 +1,21 @@
+# Dockerfile.test
+# Self-contained image for running the FlowForge test suites (unit + e2e)
+# inside a reproducible Linux environment. Built and used by run_tests.sh.
+FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+
+ENV NODE_ENV=development \
+    CI=true \
+    npm_config_production=false \
+    npm_config_include=dev
+
+WORKDIR /app
+
+# Install dependencies first for better layer caching.
+COPY package.json package-lock.json* ./
+RUN npm ci --include=dev
+
+# Copy the rest of the source tree.
+COPY . .
+
+# Default command is noop; run_tests.sh drives the actual test groups.
+CMD ["node", "-e", "console.log('flowforge-test image ready')"]

@@ -241,7 +241,8 @@ function computeRevisionHash(nodes, edges) {
   for (let i = 0; i < canonical.length; i++) {
     hash = ((hash << 5) + hash + canonical.charCodeAt(i)) & 0xffffffff
   }
-  return hash.toString(16)
+  // Coerce to unsigned so the hex string never carries a sign, regardless of platform
+  return (hash >>> 0).toString(16)
 }
 
 async function loadDiagramSnapshotState(db, diagramId) {

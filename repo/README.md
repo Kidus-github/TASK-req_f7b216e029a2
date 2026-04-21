@@ -6,166 +6,182 @@ Offline-first Vue.js single-page application for drafting, reviewing, verifying,
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed
+- Docker
+- Docker Compose
 
-No local Node.js or npm installation is required.
+No host-side Node.js, npm, database setup, or package installation is required.
 
 ## Quick Start
 
+Run the application from the repository root:
+
 ```bash
-docker-compose up
+docker compose up
 ```
 
-This builds and starts the development container with hot reload enabled.
+Access the app at:
 
-Once the container is running, open your browser to:
-
-```
+```text
 http://localhost:5173
 ```
 
-To stop the application, press `Ctrl+C` or run:
+Stop the app with:
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Authentication
 
-The application uses a real client-side authentication system. There are no pre-seeded demo accounts. On first launch you must register a new user:
+The app uses real client-side authentication backed by IndexedDB.
 
-1. Open `http://localhost:5173`
-2. You will be redirected to the **Login** page
-3. Click **Register** to create a new account
-4. Enter a username (3-50 characters) and password (8+ characters)
-5. After registration, log in with the credentials you just created
+### Demo Credentials
 
-> **Note:** All data (users, diagrams, sessions) is stored in the browser's IndexedDB. Each browser profile maintains its own independent database.
+The application seeds a deterministic demo account on startup:
+
+| Access | Username | Password | Notes |
+| --- | --- | --- | --- |
+| Default authenticated user | `demo.author` | `DemoPass123!` | Seeded automatically on app bootstrap |
+| Author persona | `demo.author` | `DemoPass123!` | Select **Author** on the Profile page |
+| Reviewer persona | `demo.author` | `DemoPass123!` | Select **Reviewer** on the Profile page |
+| Viewer persona | `demo.author` | `DemoPass123!` | Select **Viewer** on the Profile page |
+
+Personas are UI-only presentation modes. They are not separate authorization roles or separate accounts.
+
+You may also register additional local users from the Register page, but the seeded demo account is the canonical verification path.
 
 ## How to Verify It Works
 
-After running `docker-compose up` and opening `http://localhost:5173`:
+After `docker compose up` and opening `http://localhost:5173`:
 
-1. **Registration** -- Click "Register", create an account, confirm you are redirected to the login page
-2. **Login** -- Log in with your new credentials, confirm you reach the Dashboard
-3. **Create a diagram** -- Click "New Diagram", choose "Blank diagram" or a template (e.g. Incident Response), enter a title, and confirm the canvas loads
-4. **Add nodes** -- Drag a node (Action, Decision, etc.) from the node library onto the canvas; confirm it renders and snaps to grid
-5. **Connect nodes** -- Use quick-connect handles to draw an edge between two nodes; confirm the connection appears
-6. **Save and verify persistence** -- Wait 10 seconds for autosave (or navigate away and back); confirm the diagram is still present on the Dashboard
-7. **Export** -- Open a diagram, click Export, and choose JSON or PNG; confirm the file downloads
-8. **Persona switch** -- Go to Profile, switch persona (Author / Reviewer / Viewer); confirm the UI menus change accordingly
+1. Open `/#/login`.
+   Expected: the **Sign In** screen is visible.
+2. Sign in with `demo.author` / `DemoPass123!`.
+   Expected: you are routed to the Dashboard.
+3. Open `/#/diagrams`.
+   Expected: the seeded diagrams list is visible.
+4. Create a new diagram or open an existing one.
+   Expected: the editor loads with toolbar, node library, canvas, and inspector.
+5. Drag a node onto the canvas and save.
+   Expected: the node persists after navigation or reload.
+6. Open `/#/library`.
+   Expected: published diagrams are visible in the Approved Library.
+7. Open `/#/profile`.
+   Expected: the profile page shows the demo account, persona controls, audit-retention controls, backup/export options, and destructive-action confirmations.
+8. Switch between **Author**, **Reviewer**, and **Viewer** on Profile.
+   Expected: the UI affordances change to match the selected persona.
 
 ## Running Tests
 
-Tests run on the host using the provided `run_test.sh` script, which requires Node.js (v20+) and npm on the host:
+Run the complete test suite through Docker:
 
 ```bash
-chmod +x run_test.sh
-./run_test.sh
+./run_tests.sh
 ```
 
-The script installs dependencies automatically if needed and exits with a non-zero code on failure.
+Optional subsets:
 
-> **Note:** There is currently no Docker-based test service. See [Required Repo Fixes](#required-repo-fixes) below.
+```bash
+./run_tests.sh unit
+./run_tests.sh e2e
+./run_tests.sh unit e2e
+```
+
+`run_tests.sh` builds a dedicated Docker test image and runs lint, unit, and browser workflow tests in containers. No host-side package installation is required.
 
 ## Production Build (Docker)
 
+Run the production container build:
+
 ```bash
-docker build -f Dockerfile.prod -t flowforge-prod .
-docker run -p 80:80 flowforge-prod
+docker compose up --build flowforge-prod
 ```
 
-The production image uses a multi-stage build (Node for compilation, nginx for serving) and is accessible at `http://localhost:80`.
+Access the production container at:
+
+```text
+http://localhost:8080
+```
 
 ## Core Concepts
 
 ### Personas (UI-only)
 
-Three presentation-only personas change menus and available affordances. They do **not** enforce access control:
-
-| Persona      | UX Focus                                                      |
-| ------------ | ------------------------------------------------------------- |
-| **Author**   | Full editing prompts, create/edit tools, publish preparation   |
-| **Reviewer** | Review-focused menus, verification tools, inspection entry     |
-| **Viewer**   | Reduced edit affordances, view/export/verification emphasis    |
+| Persona | UX Focus |
+| --- | --- |
+| Author | Full editing prompts, create/edit tools, publish preparation |
+| Reviewer | Review-focused menus, verification tools, inspection entry |
+| Viewer | Reduced edit affordances, view/export/verification emphasis |
 
 ### Diagram Creation
 
-Create diagrams from a blank canvas or from built-in templates (Incident Response, Approval Chain, Safety Checklist).
+Create diagrams from a blank canvas or from built-in templates such as Incident Response, Approval Chain, and Safety Checklist.
 
 ### Canvas Features
 
-- SVG-based zoomable canvas (10%-400%)
-- 5 node types: Start, End, Decision, Action, Note
-- Drag-and-drop with snap-to-grid
-- Quick-connect handles for edge creation
-- Orthogonal and curve routing modes
-- Inspector drawer for node/edge property editing
-- Undo/redo (200 steps) with history modal
+- SVG-based zoomable canvas
+- drag-and-drop with snap-to-grid
+- quick-connect handles for edge creation
+- orthogonal and curve routing modes
+- inspector drawer for node/edge property editing
+- undo/redo with history modal
 
 ### Traceability and Verification
 
-- Generate traceability codes for nodes (SOP-XXX-TN format)
-- Verification view: enter a code to highlight the matching node on the canvas
+- generate traceability codes for nodes
+- verification view can highlight matching nodes
 
 ### Versioning and Concurrency
 
-- Autosave every 10 seconds with immutable version snapshots (max 20)
-- One-click rollback, BroadcastChannel multi-tab conflict detection
+- autosave with immutable version snapshots
+- rollback support
+- BroadcastChannel-based multi-tab conflict detection
 
 ### Publishing
 
-- Publish/retract lifecycle with structural validation
-- Approved Library for published diagrams
-- Inspection records with pass/fail results
+- publish/retract lifecycle with structural validation
+- approved library for published diagrams
+- inspection records with pass/fail results
 
 ### Import/Export
 
 - JSON import with validation and error reporting
-- JSON, SVG, and PNG export (PNG via Web Worker)
-- Sample import files in `samples/`
+- JSON, SVG, and PNG export
+- PNG export via Web Worker
 
 ### Data Management
 
-- Backup, restore, and delete-all from Profile > Data Management
+- backup, restore, and delete-all flows from Profile
 - Service Worker for offline static asset caching
 
 ## Architecture
 
-```
+```text
 src/
   components/     Vue components (common, diagrams, layout)
   composables/    Composition functions (autosave, concurrency)
   db/             IndexedDB schema
   router/         Vue Router with auth guards
-  services/       Business logic (auth, audit, canvas, template, etc.)
+  services/       Business logic (auth, audit, canvas, template, import/export, etc.)
   stores/         Pinia stores (auth, diagrams, preferences, ui, history)
   utils/          Utilities (id, masking, validation)
   views/          Page-level view components
   workers/        Web Workers (PNG export)
+tests/
+  unit/           Vitest component/store/service integration and unit coverage
+  e2e/            Playwright browser workflow coverage
 ```
 
 ## Tech Stack
 
-- Vue 3, Pinia, Vue Router (hash mode)
-- IndexedDB via `idb`, Web Crypto API
-- BroadcastChannel, Service Worker, Web Workers
-- Vite, Vitest
-
-## Required Repo Fixes
-
-The following items are needed to fully support a Docker-contained workflow:
-
-1. **Docker-based test service** -- `docker-compose.yml` does not include a test service. A `flowforge-test` service (or a `docker-compose.test.yml` override) should be added so tests can run via `docker-compose run --rm flowforge-test` without requiring host-installed Node.js.
-2. **Test script naming** -- The test script is named `run_test.sh` (singular). If the audit expects `run_tests.sh` (plural), rename it or add a symlink.
-
-## Local Development (Alternative)
-
-If you prefer to run without Docker, Node.js v20+ and npm are required:
-
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173`. This path is provided for contributor convenience but is not the primary setup method.
+- Vue 3
+- Pinia
+- Vue Router (hash mode)
+- IndexedDB via `idb`
+- Web Crypto API
+- BroadcastChannel
+- Service Worker
+- Web Workers
+- Vite
+- Vitest
+- Playwright

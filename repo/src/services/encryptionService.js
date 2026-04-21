@@ -14,15 +14,28 @@ const IV_BYTES = 12
 // `@vite-ignore`'d dynamic import so browser bundlers do not try to inline
 // a Node built-in into client chunks.
 let cryptoImpl = globalThis.crypto
-if (!cryptoImpl || !cryptoImpl.subtle) {
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-    const { webcrypto } = await import(/* @vite-ignore */ 'node:crypto')
-    cryptoImpl = webcrypto
+let cryptoLoadPromise = null
+
+async function getCryptoImpl() {
+  if (cryptoImpl?.subtle) return cryptoImpl
+
+  if (!cryptoLoadPromise) {
+    cryptoLoadPromise = (async () => {
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        const { webcrypto } = await import(/* @vite-ignore */ 'node:crypto')
+        cryptoImpl = webcrypto
+        return cryptoImpl
+      }
+      throw new Error('Web Crypto API is unavailable in this environment.')
+    })()
   }
+
+  return cryptoLoadPromise
 }
 
-function getRandomBytes(n) {
-  return cryptoImpl.getRandomValues(new Uint8Array(n))
+async function getRandomBytes(n) {
+  const crypto = await getCryptoImpl()
+  return crypto.getRandomValues(new Uint8Array(n))
 }
 
 function bufferToBase64(buf) {
@@ -54,21 +67,23 @@ function base64ToBuffer(b64) {
 
 async function importPasswordKey(password) {
   const enc = new TextEncoder()
-  return cryptoImpl.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
+  const crypto = await getCryptoImpl()
+  return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, [
     'deriveBits',
     'deriveKey',
   ])
 }
 
 export const encryptionService = {
-  generateSalt() {
-    return bufferToBase64(getRandomBytes(SALT_BYTES))
+  async generateSalt() {
+    return bufferToBase64(await getRandomBytes(SALT_BYTES))
   },
 
   async hashPassword(password, saltB64) {
     const baseKey = await importPasswordKey(password)
     const salt = base64ToBuffer(saltB64)
-    const bits = await cryptoImpl.subtle.deriveBits(
+    const crypto = await getCryptoImpl()
+    const bits = await crypto.subtle.deriveBits(
       { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: PBKDF2_HASH },
       baseKey,
       KEY_BYTES * 8
@@ -88,7 +103,8 @@ export const encryptionService = {
   async deriveEncryptionKey(password, encryptionSaltB64) {
     const baseKey = await importPasswordKey(password)
     const salt = base64ToBuffer(encryptionSaltB64)
-    return cryptoImpl.subtle.deriveKey(
+    const crypto = await getCryptoImpl()
+    return crypto.subtle.deriveKey(
       { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: PBKDF2_HASH },
       baseKey,
       { name: AES_ALGORITHM, length: KEY_BYTES * 8 },
@@ -98,9 +114,10 @@ export const encryptionService = {
   },
 
   async encrypt(cryptoKey, plaintext) {
-    const iv = getRandomBytes(IV_BYTES)
+    const iv = await getRandomBytes(IV_BYTES)
     const enc = new TextEncoder()
-    const cipherBuffer = await cryptoImpl.subtle.encrypt(
+    const crypto = await getCryptoImpl()
+    const cipherBuffer = await crypto.subtle.encrypt(
       { name: AES_ALGORITHM, iv },
       cryptoKey,
       enc.encode(plaintext)
@@ -115,7 +132,8 @@ export const encryptionService = {
   async decrypt(cryptoKey, ciphertextB64, ivB64) {
     const iv = base64ToBuffer(ivB64)
     const cipherBuffer = base64ToBuffer(ciphertextB64)
-    const plainBuffer = await cryptoImpl.subtle.decrypt(
+    const crypto = await getCryptoImpl()
+    const plainBuffer = await crypto.subtle.decrypt(
       { name: AES_ALGORITHM, iv },
       cryptoKey,
       cipherBuffer

@@ -23,9 +23,9 @@ export const authService = {
     const existing = await db.getFromIndex('users', 'by-username', usernameLower)
     if (existing) throw new Error('Username already exists.')
 
-    const passwordSalt = encryptionService.generateSalt()
+    const passwordSalt = await encryptionService.generateSalt()
     const passwordHash = await encryptionService.hashPassword(password, passwordSalt)
-    const encryptionSalt = encryptionService.generateSalt()
+    const encryptionSalt = await encryptionService.generateSalt()
     const ts = getTimestamp()
     const masked = maskDisplayName(realName || username)
 
@@ -299,9 +299,9 @@ export const authService = {
       throw new Error('Current password is incorrect.')
     }
 
-    const newSalt = encryptionService.generateSalt()
+    const newSalt = await encryptionService.generateSalt()
     const newHash = await encryptionService.hashPassword(newPassword, newSalt)
-    const newEncSalt = encryptionService.generateSalt()
+    const newEncSalt = await encryptionService.generateSalt()
 
     user.passwordHash = newHash
     user.passwordSalt = newSalt

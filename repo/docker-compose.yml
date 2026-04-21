@@ -13,3 +13,27 @@ services:
       - /app/node_modules
     environment:
       - NODE_ENV=development
+
+  flowforge-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: flowforge-prod
+    ports:
+      - "8080:80"
+
+  flowforge-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: flowforge-test:local
+    container_name: flowforge-test
+    ipc: host
+    environment:
+      - CI=true
+      - NODE_ENV=development
+    volumes:
+      - ./coverage:/app/coverage
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+    command: ["sh", "-lc", "npm run test:unit && npm run test:e2e"]

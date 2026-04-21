@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+.vite
+ASSUMPTIONS.md
+coverage
+playwright-report
+test-results
+.claude
