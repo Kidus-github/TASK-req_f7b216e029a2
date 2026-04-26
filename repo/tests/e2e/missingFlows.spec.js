@@ -51,6 +51,24 @@ async function createBlankDiagram(page, title) {
   return page.url()
 }
 
+// HTML5 drag-and-drop in Chromium needs synthetic DragEvent dispatch with a
+// shared DataTransfer; page.mouse alone does not propagate it. The drop
+// triggers an async addNode call, so we wait for the new canvas-node to
+// render before returning — otherwise callers can race the in-flight save.
+async function dropActionNode(page, canvasX, canvasY) {
+  const before = await page.locator('.canvas-node').count()
+  await page.evaluate(({ canvasX, canvasY }) => {
+    const lib = [...document.querySelectorAll('.lib-node')].find((el) => /Action/.test(el.textContent))
+    const svg = document.querySelector('svg.canvas-svg')
+    const dt = new DataTransfer()
+    lib.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }))
+    const r = svg.getBoundingClientRect()
+    svg.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + canvasX, clientY: r.top + canvasY }))
+    svg.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + canvasX, clientY: r.top + canvasY }))
+  }, { canvasX, canvasY })
+  await expect(page.locator('.canvas-node')).toHaveCount(before + 1, { timeout: 5_000 })
+}
+
 // ---------------------------------------------------------------------------
 // 1. Session lock
 // ---------------------------------------------------------------------------
@@ -107,8 +125,8 @@ test.describe('Template-based diagram creation', () => {
 
     // The template list should become visible.  Click the first template
     // (Incident Response — 8 nodes, 8 edges).
-    await expect(page.getByText('Incident Response')).toBeVisible()
-    await page.getByText('Incident Response').first().click()
+    await expect(page.getByText('Incident Response', { exact: true })).toBeVisible()
+    await page.getByText('Incident Response', { exact: true }).click()
 
     // After selection the title input should be auto-filled with the template name.
     await expect(page.locator('#new-title')).toHaveValue('Incident Response')
@@ -159,7 +177,7 @@ test.describe('Template-based diagram creation', () => {
 
     // Pick a template first.
     await page.getByRole('button', { name: 'From Template' }).click()
-    await page.getByText('Incident Response').first().click()
+    await page.getByText('Incident Response', { exact: true }).click()
     await expect(page.locator('#new-title')).toHaveValue('Incident Response')
 
     // Switch back to blank.
@@ -183,7 +201,7 @@ test.describe('Publish / Retract diagram lifecycle', () => {
     const title = `Lifecycle ${uniqueTag()}`
     await page.getByRole('button', { name: '+ New Diagram' }).click()
     await page.getByRole('button', { name: 'From Template' }).click()
-    await page.getByText('Incident Response').first().click()
+    await page.getByText('Incident Response', { exact: true }).click()
     await page.locator('#new-title').fill(title)
     await page.getByRole('button', { name: /Create from/ }).click()
 
@@ -246,7 +264,7 @@ test.describe('Publish / Retract diagram lifecycle', () => {
     const title = `RePublish ${uniqueTag()}`
     await page.getByRole('button', { name: '+ New Diagram' }).click()
     await page.getByRole('button', { name: 'From Template' }).click()
-    await page.getByText('Incident Response').first().click()
+    await page.getByText('Incident Response', { exact: true }).click()
     await page.locator('#new-title').fill(title)
     await page.getByRole('button', { name: /Create from/ }).click()
     await expect(page).toHaveURL(/#\/diagrams\//)
@@ -287,17 +305,14 @@ test.describe('Version history panel and snapshot rollback', () => {
     const title = `Rollback ${uniqueTag()}`
     await createBlankDiagram(page, title)
 
-    // Save manually to create snapshot 1 (original title).
+    // The toolbar Save button is disabled until the diagram is dirty. Drop a
+    // node to mark the editor dirty, then save to create snapshot 1.
+    await dropActionNode(page, 200, 200)
     await page.getByRole('button', { name: 'Save' }).first().click()
     await page.waitForTimeout(500)
 
-    // Rename and save again to create snapshot 2.
-    await page.locator('.toolbar-title').click()
-    const renamedTitle = `${title} v2`
-    await page.locator('.toolbar-input').fill(renamedTitle)
-    await page.locator('.toolbar-input').press('Enter')
-    await expect(page.locator('.toolbar-title')).toContainText(renamedTitle)
-
+    // Drop another node, save again — that makes snapshot 2.
+    await dropActionNode(page, 360, 220)
     await page.getByRole('button', { name: 'Save' }).first().click()
     await page.waitForTimeout(500)
 
@@ -454,6 +469,44 @@ test.describe('Empty state and first-run experience', () => {
     await page.locator('#username').fill(username)
     await page.locator('#password').fill(password)
     await page.getByRole('button', { name: 'Sign In' }).click()
+    // Wait for the Sign In click to land us on the dashboard before we
+    // navigate again — otherwise the next goto can race the in-flight login.
+    await expect(page).toHaveURL(/#\/$/)
+
+    // The demoSeed always inserts a "Demo Approval Library" published diagram
+    // on bootstrap and re-creates it after deletion (it checks by title), so
+    // we can't assert an empty Library by deleting rows. Instead, flip every
+    // published diagram to 'retracted' — the seed still sees a row by that
+    // title and won't re-insert, but publishedDiagrams becomes empty. We keep
+    // the IDB transaction synchronously alive (no awaits between getAll and
+    // put) so it doesn't auto-commit before the puts run.
+    await page.evaluate(() => {
+      return new Promise((resolve, reject) => {
+        const open = indexedDB.open('flowforge-sop')
+        open.onerror = () => reject(open.error)
+        open.onsuccess = () => {
+          const db = open.result
+          const tx = db.transaction('diagrams', 'readwrite')
+          const store = tx.objectStore('diagrams')
+          const getReq = store.getAll()
+          getReq.onsuccess = () => {
+            for (const d of getReq.result) {
+              if (d.status === 'published') {
+                store.put({ ...d, status: 'retracted' })
+              }
+            }
+          }
+          getReq.onerror = () => reject(getReq.error)
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onerror = () => reject(tx.error)
+        }
+      })
+    })
+
+    // Hard-reload so the Pinia diagram store re-reads the now-empty published
+    // set; a hash navigation alone keeps the prior in-memory rows.
+    await page.reload()
+    await expect(page).toHaveURL(/#\/$/)
 
     await page.goto('/#/library')
     await expect(page.getByRole('heading', { name: 'Approved Library' })).toBeVisible()

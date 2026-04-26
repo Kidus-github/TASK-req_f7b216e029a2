@@ -1,7 +1,7 @@
 # Dockerfile.test
 # Self-contained image for running the FlowForge test suites (unit + e2e)
 # inside a reproducible Linux environment. Built and used by run_tests.sh.
-FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 ENV NODE_ENV=development \
     CI=true \

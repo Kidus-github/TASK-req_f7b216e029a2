@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 const DEMO_USERNAME = 'demo.author'
 const DEMO_PASSWORD = 'DemoPass123!'
@@ -43,17 +43,24 @@ test.describe('Real JSON export → import round-trip', () => {
     await page.getByRole('button', { name: /Create Blank/ }).click()
     await expect(page).toHaveURL(/#\/diagrams\//)
 
-    // Open the Import modal
+    // Open the Import modal — wait for the modal to be attached before
+    // attaching the file so we don't race the modal's mount.
     const importBtn = page.getByRole('button', { name: /Import/i })
     if (await importBtn.isVisible().catch(() => false)) {
       await importBtn.click()
+      await expect(page.locator('input[type="file"]')).toBeAttached({ timeout: 5_000 })
       await page.locator('input[type="file"]').setInputFiles(path)
       await page.locator('.modal-actions .btn-primary').click()
-      await expect(page.getByText(/Status: (completed|partial_success)/)).toBeVisible({ timeout: 10_000 })
+
+      // On successful import the parent emits 'imported' and immediately closes
+      // the modal — the in-modal "Status: completed" text never stays on
+      // screen long enough to assert. Wait for the modal to close (success
+      // signal) and then for the imported nodes to render on the canvas.
+      await expect(page.locator('.modal-overlay')).toHaveCount(0, { timeout: 20_000 })
     }
 
     // The new diagram now renders at least the same number of nodes as the source
-    await page.waitForTimeout(300)
+    await expect(page.locator('.canvas-node').first()).toBeVisible({ timeout: 5_000 })
     const nodes = await page.locator('.canvas-node').count()
     expect(nodes).toBeGreaterThan(0)
   })
@@ -71,7 +78,7 @@ test.describe('Real JSON export → import round-trip', () => {
     if (await importBtn.isVisible().catch(() => false)) {
       await importBtn.click()
       const tmpPath = testInfo.outputPath('malformed.json')
-      await require('node:fs').promises.writeFile(tmpPath, 'this is not json')
+      writeFileSync(tmpPath, 'this is not json')
       await page.locator('input[type="file"]').setInputFiles(tmpPath)
       await page.locator('.modal-actions .btn-primary').click()
 

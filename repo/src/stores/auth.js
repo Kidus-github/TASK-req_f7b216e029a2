@@ -2,6 +2,27 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authService } from '@/services/authService'
 
+const SESSION_STORAGE_KEY = 'ff_active_session'
+
+function readStoredSession() {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_STORAGE_KEY) : null
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredSession(value) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    if (value) localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(value))
+    else localStorage.removeItem(SESSION_STORAGE_KEY)
+  } catch {
+    // ignore — non-fatal
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const session = ref(null)
@@ -21,8 +42,29 @@ export const useAuthStore = defineStore('auth', () => {
     session.value = result.session
     encryptionKey.value = result.encryptionKey
     isLocked.value = false
+    writeStoredSession({ sessionId: result.session.sessionId, userId: result.user.userId })
     startInactivityTimer()
     return result
+  }
+
+  async function rehydrate() {
+    const stored = readStoredSession()
+    if (!stored?.sessionId) return false
+    try {
+      const restored = await authService.rehydrateSession(stored.sessionId)
+      if (!restored) {
+        writeStoredSession(null)
+        return false
+      }
+      user.value = restored.user
+      session.value = restored.session
+      isLocked.value = !!restored.session.lockedAt
+      if (!isLocked.value) startInactivityTimer()
+      return true
+    } catch {
+      writeStoredSession(null)
+      return false
+    }
   }
 
   async function register({ username: u, password, realName, organization }) {
@@ -34,6 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (session.value) {
       await authService.logout(session.value.sessionId, user.value?.userId)
     }
+    writeStoredSession(null)
     purge()
   }
 
@@ -107,5 +150,6 @@ export const useAuthStore = defineStore('auth', () => {
     unlock,
     purge,
     resetInactivityTimer,
+    rehydrate,
   }
 })

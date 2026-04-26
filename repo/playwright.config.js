@@ -13,7 +13,10 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   outputDir: 'test-results',
-  timeout: 60_000,
+  // Per-test timeout — bumped from 60s to 90s because heavy multi-step
+  // editor flows (drop, drag-connect, save, reload, re-assert) can take >60s
+  // under host contention when the Vite preview build runs alongside tests.
+  timeout: 90_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
@@ -34,6 +37,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',
     stderr: 'pipe',
-    timeout: 180_000,
+    // Cold builds inside the test container can run >3 minutes under host
+    // contention; allow up to 5 minutes before declaring webServer dead.
+    timeout: 300_000,
   },
 })

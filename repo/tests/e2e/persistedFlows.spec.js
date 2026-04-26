@@ -107,7 +107,9 @@ test.describe('Library route rich assertions', () => {
     await libraryRow.getByRole('button', { name: 'View' }).click()
     await expect(page).toHaveURL(/#\/diagrams\//)
     await expect(page.locator('.toolbar-title')).toContainText('Demo Approval Library')
-    await expect(page.getByText('published')).toBeVisible()
+    // Disambiguate from <text>Published</text> stamps drawn inside published
+    // canvas nodes — target the toolbar status badge directly.
+    await expect(page.locator('.badge-published')).toBeVisible()
   })
 })
 
@@ -118,7 +120,7 @@ test.describe('Profile preference persistence', () => {
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
 
     // Make sure we start on Author then switch to Viewer
-    await page.getByRole('button', { name: 'Viewer' }).click()
+    await page.getByRole('button', { name: 'Viewer', exact: true }).click()
     await expect(page.locator('button.btn-primary', { hasText: 'Viewer' })).toBeVisible()
 
     // Reload and confirm persistence (Viewer stays highlighted as primary)
@@ -133,7 +135,7 @@ test.describe('Profile preference persistence', () => {
   test('viewer persona hides diagram creation on the diagrams list page', async ({ page }) => {
     await loginAsDemo(page)
     await page.goto('/#/profile')
-    await page.getByRole('button', { name: 'Viewer' }).click()
+    await page.getByRole('button', { name: 'Viewer', exact: true }).click()
     await expect(page.locator('button.btn-primary', { hasText: 'Viewer' })).toBeVisible()
 
     await page.goto('/#/diagrams')
@@ -157,8 +159,9 @@ test.describe('Profile preference persistence', () => {
     await textarea.fill(uniqueNote)
     await page.getByRole('button', { name: 'Save Retention Note' }).click()
 
-    // TextConfirmModal flow
-    await expect(page.getByText('SAVE AUDIT RETENTION NOTE')).toBeVisible()
+    // TextConfirmModal flow — exact match avoids the case-insensitive
+    // <h2>Save Audit Retention Note</h2> in the same modal.
+    await expect(page.getByText('SAVE AUDIT RETENTION NOTE', { exact: true })).toBeVisible()
     await page.locator('.modal input').fill('SAVE AUDIT RETENTION NOTE')
     await page.locator('.modal-actions button').last().click()
 

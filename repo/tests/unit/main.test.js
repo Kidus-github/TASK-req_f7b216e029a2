@@ -132,6 +132,22 @@ describe('main entry bootstrap (real Vue + Pinia + router)', () => {
     expect(register).toHaveBeenCalled()
   })
 
+  it('registerServiceWorker registers immediately when the document is already loaded', async () => {
+    // bootstrapApplication awaits async work, so by the time registerServiceWorker
+    // runs the window load event has often already fired. In that case we
+    // register synchronously rather than attaching a listener that never runs.
+    const register = vi.fn(() => Promise.resolve())
+    const addEventListener = vi.fn()
+    const fakeNav = { serviceWorker: { register } }
+    const fakeWin = { addEventListener, document: { readyState: 'complete' } }
+
+    const { registerServiceWorker } = await import('@/main.js')
+    registerServiceWorker(fakeNav, fakeWin)
+
+    expect(addEventListener).not.toHaveBeenCalled()
+    expect(register).toHaveBeenCalledWith('./sw.js')
+  })
+
   it('bootstrapApplication exposed as a function returns a real Vue app that can be unmounted', async () => {
     createMountTarget()
     const mod = await import('@/main.js')

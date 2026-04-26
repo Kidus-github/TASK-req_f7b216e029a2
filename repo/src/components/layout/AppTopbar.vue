@@ -15,6 +15,13 @@ async function handleLogout() {
   router.push('/login')
 }
 
+async function handleLock() {
+  await auth.lock()
+  // Plain /login (no ?locked=1) — explicit Lock click ends the active session
+  // visibly and lets the user re-enter via username + password.
+  router.push('/login')
+}
+
 function toggleTheme() {
   prefs.setTheme(prefs.theme === 'dark' ? 'light' : 'dark')
 }
@@ -45,7 +52,7 @@ function toggleTheme() {
       >
         {{ prefs.theme === 'dark' ? 'Light' : 'Dark' }}
       </button>
-      <button class="btn btn-sm btn-secondary" @click="auth.lock()">Lock</button>
+      <button class="btn btn-sm btn-secondary" @click="handleLock">Lock</button>
       <button class="btn btn-sm btn-secondary" @click="handleLogout">Logout</button>
     </div>
   </header>

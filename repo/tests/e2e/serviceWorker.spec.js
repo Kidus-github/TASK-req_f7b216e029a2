@@ -35,18 +35,17 @@ test.describe('Service Worker registration', () => {
   test('SW registers successfully and reaches the activated state', async ({ page }) => {
     await page.goto('/')
 
-    // Wait until the SW is registered with an active state.
-    const swState = await page.waitForFunction(
-      async () => {
-        const reg = await navigator.serviceWorker.getRegistration()
-        if (!reg) return null
-        return reg.active?.state || reg.installing?.state || reg.waiting?.state
-      },
+    // Poll until reg.active reports a state we recognize. A separate eval
+    // after waitForFunction can race because reg.active can briefly be null
+    // during state transitions, so we read the state inside the same poll.
+    await expect.poll(
+      async () =>
+        page.evaluate(async () => {
+          const reg = await navigator.serviceWorker.getRegistration()
+          return reg?.active?.state ?? null
+        }),
       { timeout: 15_000 },
-    )
-
-    const state = await swState.jsonValue()
-    expect(['activating', 'activated']).toContain(state)
+    ).toMatch(/^(activating|activated)$/)
   })
 
   test('navigator.serviceWorker.controller is non-null after the SW claims control', async ({ page }) => {
@@ -103,8 +102,13 @@ test.describe('Service Worker cache — install-time pre-caching', () => {
 
 test.describe('Service Worker cache — dynamic fetch-time caching', () => {
   test('same-origin JS/CSS assets are written to the cache after the app loads', async ({ page }) => {
+    // First load registers and activates the SW. Initial resources for that
+    // load are fetched *before* the SW takes control, so they bypass the
+    // fetch handler. Reload after activation so subsequent same-origin
+    // resources flow through the SW and populate the cache.
     await page.goto('/')
     await waitForSWControlled(page)
+    await page.reload()
 
     // Allow the SW a moment to process all in-flight fetch events.
     await page.waitForTimeout(1500)

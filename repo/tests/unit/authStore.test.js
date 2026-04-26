@@ -219,4 +219,81 @@ describe('auth store', () => {
     expect(store.encryptionKey).toBeNull()
     timeoutSpy.mockRestore()
   })
+
+  describe('rehydrate', () => {
+    it('login persists the active session id+userId to localStorage', async () => {
+      await authService.createUser({ username: 'rehyd-user', password: 'StrongPass123', realName: 'Rehyd' })
+      const store = useAuthStore()
+      await store.login('rehyd-user', 'StrongPass123')
+
+      const stored = JSON.parse(localStorage.getItem('ff_active_session'))
+      expect(stored.sessionId).toBe(store.session.sessionId)
+      expect(stored.userId).toBe(store.user.userId)
+    })
+
+    it('rehydrate populates the store from localStorage on a fresh page', async () => {
+      await authService.createUser({ username: 'rehyd2-user', password: 'StrongPass123', realName: 'Rehyd2' })
+      const original = useAuthStore()
+      await original.login('rehyd2-user', 'StrongPass123')
+      const sessionId = original.session.sessionId
+
+      // Simulate a page reload by re-creating the Pinia container; localStorage
+      // and IndexedDB persist (real production behavior on F5).
+      setActivePinia(createPinia())
+      const reloaded = useAuthStore()
+      expect(reloaded.isAuthenticated).toBe(false)
+
+      const ok = await reloaded.rehydrate()
+      expect(ok).toBe(true)
+      expect(reloaded.isAuthenticated).toBe(true)
+      expect(reloaded.session.sessionId).toBe(sessionId)
+      expect(reloaded.username).toBe('rehyd2-user')
+      expect(reloaded.isLocked).toBe(false)
+    })
+
+    it('rehydrate returns false and is a no-op when localStorage has nothing', async () => {
+      const store = useAuthStore()
+      const ok = await store.rehydrate()
+      expect(ok).toBe(false)
+      expect(store.isAuthenticated).toBe(false)
+    })
+
+    it('rehydrate clears the stored session when the IDB row is missing or ended', async () => {
+      localStorage.setItem('ff_active_session', JSON.stringify({ sessionId: 'no-such-id', userId: 'no-such-user' }))
+      const store = useAuthStore()
+      const ok = await store.rehydrate()
+      expect(ok).toBe(false)
+      expect(localStorage.getItem('ff_active_session')).toBeNull()
+    })
+
+    it('rehydrate restores a locked session as locked (isAuthenticated stays false)', async () => {
+      await authService.createUser({ username: 'lockrehyd-user', password: 'StrongPass123', realName: 'Lock' })
+      const original = useAuthStore()
+      await original.login('lockrehyd-user', 'StrongPass123')
+      await original.lock()
+
+      setActivePinia(createPinia())
+      const reloaded = useAuthStore()
+      const ok = await reloaded.rehydrate()
+      expect(ok).toBe(true)
+      expect(reloaded.isLocked).toBe(true)
+      expect(reloaded.isAuthenticated).toBe(false)
+    })
+
+    it('rehydrate swallows errors and clears the stored session on bad JSON', async () => {
+      localStorage.setItem('ff_active_session', 'not-json')
+      const store = useAuthStore()
+      const ok = await store.rehydrate()
+      expect(ok).toBe(false)
+    })
+
+    it('logout removes the stored session so reload starts unauthenticated', async () => {
+      await authService.createUser({ username: 'logout-user', password: 'StrongPass123', realName: 'Logout' })
+      const store = useAuthStore()
+      await store.login('logout-user', 'StrongPass123')
+      expect(localStorage.getItem('ff_active_session')).not.toBeNull()
+      await store.logout()
+      expect(localStorage.getItem('ff_active_session')).toBeNull()
+    })
+  })
 })

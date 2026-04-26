@@ -149,7 +149,10 @@ test.describe('Flow 5 — library reflects real published-diagram lifecycle', ()
     await libraryRow.getByRole('button', { name: 'View' }).click()
     await expect(page).toHaveURL(/#\/diagrams\//)
     await expect(page.locator('.toolbar-title')).toContainText('Demo Approval Library')
-    await expect(page.getByText('published')).toBeVisible()
+    // The published *status* badge in the editor — disambiguate from the SVG
+    // <text>Published</text> stamp drawn inside published-state canvas nodes,
+    // which getByText would also match.
+    await expect(page.locator('.badge-published')).toBeVisible()
   })
 })
 
@@ -179,7 +182,10 @@ test.describe('Flow 7 — destructive confirmation UX', () => {
     const uniqueNote = `Confirmation-gated retention note ${Date.now().toString(36).slice(-5)}.`
     await page.locator('textarea').fill(uniqueNote)
     await page.getByRole('button', { name: 'Save Retention Note' }).click()
-    await expect(page.getByText('SAVE AUDIT RETENTION NOTE')).toBeVisible()
+    // The TextConfirmModal renders the literal phrase as a <p>; getByText
+    // case-insensitively also matches the modal's <h2>Save Audit Retention Note</h2>,
+    // so use exact-match to pick only the confirmation phrase paragraph.
+    await expect(page.getByText('SAVE AUDIT RETENTION NOTE', { exact: true })).toBeVisible()
 
     // Cancel path — the note is NOT saved
     await page.locator('.modal-actions button').first().click()
@@ -187,7 +193,7 @@ test.describe('Flow 7 — destructive confirmation UX', () => {
 
     // Re-open the confirm modal
     await page.getByRole('button', { name: 'Save Retention Note' }).click()
-    await expect(page.getByText('SAVE AUDIT RETENTION NOTE')).toBeVisible()
+    await expect(page.getByText('SAVE AUDIT RETENTION NOTE', { exact: true })).toBeVisible()
 
     // Wrong phrase blocks save — modal should remain open
     await page.locator('.modal input').fill('NOPE')

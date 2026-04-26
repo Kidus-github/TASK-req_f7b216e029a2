@@ -324,6 +324,16 @@ export const authService = {
     const clamped = Math.max(5, Math.min(60, isNaN(min) ? 30 : min))
     return clamped * 60 * 1000
   },
+
+  async rehydrateSession(sessionId) {
+    if (!sessionId) return null
+    const db = await getDB()
+    const session = await db.get('sessions', sessionId)
+    if (!session || session.endedAt) return null
+    const user = await db.get('users', session.userId)
+    if (!user || user.isDeleted) return null
+    return { user: sanitizeUser(user), session }
+  },
 }
 
 function validateUsernameFormat(username) {

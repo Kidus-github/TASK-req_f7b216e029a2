@@ -93,4 +93,33 @@ describe('authService', () => {
       expect(updated.isBlacklisted).toBe(true)
     })
   })
+
+  describe('rehydrateSession', () => {
+    it('returns user+session for an active (non-ended) session', async () => {
+      await authService.createUser({ username: 'rehyd-svc-user', password: 'StrongPass123' })
+      const result = await authService.login('rehyd-svc-user', 'StrongPass123')
+      const restored = await authService.rehydrateSession(result.session.sessionId)
+      expect(restored).toBeTruthy()
+      expect(restored.user.username).toBe('rehyd-svc-user')
+      expect(restored.session.sessionId).toBe(result.session.sessionId)
+    })
+
+    it('returns null when called without a session id', async () => {
+      expect(await authService.rehydrateSession(null)).toBeNull()
+      expect(await authService.rehydrateSession('')).toBeNull()
+    })
+
+    it('returns null after the session has been ended via logout', async () => {
+      await authService.createUser({ username: 'rehyd-end-user', password: 'StrongPass123' })
+      const result = await authService.login('rehyd-end-user', 'StrongPass123')
+      await authService.logout(result.session.sessionId, result.user.userId)
+      const restored = await authService.rehydrateSession(result.session.sessionId)
+      expect(restored).toBeNull()
+    })
+
+    it('returns null when the stored session id no longer exists', async () => {
+      const restored = await authService.rehydrateSession('not-a-real-session')
+      expect(restored).toBeNull()
+    })
+  })
 })

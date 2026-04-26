@@ -72,20 +72,22 @@ test.describe('Diagram lifecycle on the canvas', () => {
     await page.locator('#new-title').fill(title)
     await page.getByRole('button', { name: /Create Blank/ }).click()
 
-    // Drag a node type from the NodeLibrary onto the canvas
-    const source = page.locator('.node-library-item').first()
-    const target = page.locator('svg.canvas-svg')
-    await expect(source).toBeVisible()
-    await expect(target).toBeVisible()
+    // Drag a node type from the NodeLibrary onto the canvas. HTML5
+    // drag-and-drop in Chromium needs synthetic DragEvent dispatch with a
+    // shared DataTransfer; page.mouse alone does not propagate it.
+    await expect(page.locator('.lib-node', { hasText: 'Action' })).toBeVisible()
+    await expect(page.locator('svg.canvas-svg')).toBeVisible()
 
-    const sourceBox = await source.boundingBox()
-    const targetBox = await target.boundingBox()
-    if (sourceBox && targetBox) {
-      await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2)
-      await page.mouse.down()
-      await page.mouse.move(targetBox.x + 200, targetBox.y + 200, { steps: 10 })
-      await page.mouse.up()
-    }
+    await page.evaluate(() => {
+      const lib = [...document.querySelectorAll('.lib-node')].find((el) => /Action/.test(el.textContent))
+      const svg = document.querySelector('svg.canvas-svg')
+      const dt = new DataTransfer()
+      lib.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }))
+      const r = svg.getBoundingClientRect()
+      svg.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + 200, clientY: r.top + 200 }))
+      svg.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: r.left + 200, clientY: r.top + 200 }))
+    })
+    await expect(page.locator('.canvas-node')).toHaveCount(1, { timeout: 5000 })
 
     await page.getByRole('button', { name: 'Save' }).first().click()
 
