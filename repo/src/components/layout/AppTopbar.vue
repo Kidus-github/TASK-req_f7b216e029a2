@@ -50,7 +50,7 @@ function toggleTheme() {
         :aria-label="prefs.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
         @click="toggleTheme"
       >
-        {{ prefs.theme === 'dark' ? 'Light' : 'Dark' }}
+        <span aria-hidden="true">{{ prefs.theme === 'dark' ? '☀' : '☾' }}</span>
       </button>
       <button class="btn btn-sm btn-secondary" @click="handleLock">Lock</button>
       <button class="btn btn-sm btn-secondary" @click="handleLogout">Logout</button>
