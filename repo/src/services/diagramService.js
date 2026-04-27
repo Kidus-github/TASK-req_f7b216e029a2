@@ -173,7 +173,21 @@ export const diagramService = {
     const diagram = await db.get('diagrams', diagramId)
     if (!diagram) throw new Error('Diagram not found.')
 
-    const tx = db.transaction(['diagrams', 'nodes', 'edges', 'snapshots', 'traceability', 'embeddedImages'], 'readwrite')
+    const tx = db.transaction(
+      [
+        'diagrams',
+        'nodes',
+        'edges',
+        'snapshots',
+        'traceability',
+        'embeddedImages',
+        'inspections',
+        'inspectionResults',
+        'publishEvents',
+        'retractionRecords',
+      ],
+      'readwrite',
+    )
 
     // Delete nodes
     const nodes = await tx.objectStore('nodes').index('by-diagram').getAll(diagramId)
@@ -194,6 +208,28 @@ export const diagramService = {
     // Delete embedded images
     const images = await tx.objectStore('embeddedImages').index('by-diagram').getAll(diagramId)
     for (const image of images) await tx.objectStore('embeddedImages').delete(image.imageId)
+
+    // Delete inspections and their child results within the same transaction
+    const inspections = await tx.objectStore('inspections').index('by-diagram').getAll(diagramId)
+    for (const inspection of inspections) {
+      const results = await tx
+        .objectStore('inspectionResults')
+        .index('by-inspection')
+        .getAll(inspection.inspectionId)
+      for (const r of results) await tx.objectStore('inspectionResults').delete(r.resultId)
+      await tx.objectStore('inspections').delete(inspection.inspectionId)
+    }
+
+    // Delete publish events for this diagram
+    const pubEvents = await tx.objectStore('publishEvents').index('by-diagram').getAll(diagramId)
+    for (const ev of pubEvents) await tx.objectStore('publishEvents').delete(ev.publishEventId)
+
+    // Delete retraction records for this diagram
+    const retractions = await tx
+      .objectStore('retractionRecords')
+      .index('by-diagram')
+      .getAll(diagramId)
+    for (const r of retractions) await tx.objectStore('retractionRecords').delete(r.retractionId)
 
     await tx.objectStore('diagrams').delete(diagramId)
     await tx.done

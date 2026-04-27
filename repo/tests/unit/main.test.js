@@ -69,6 +69,14 @@ describe('main entry bootstrap (real Vue + Pinia + router)', () => {
     })
     expect(seeded).toBe(true)
 
+    // Wait for the bootstrap to finish mounting — that's what activates Pinia
+    // (via app.use(pinia)). Polling only on demo seeding can resume before
+    // app.use(pinia) has run, leaving useAuthStore() with no active Pinia.
+    const mounted = await waitFor(() =>
+      !!document.querySelector('#app .app-layout')
+    )
+    expect(mounted).toBe(true)
+
     // Real Pinia wiring — stores hydrate without manual setActivePinia.
     const { useAuthStore } = await import('@/stores/auth')
     const auth = useAuthStore()
