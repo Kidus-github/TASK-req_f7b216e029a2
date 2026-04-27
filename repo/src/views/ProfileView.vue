@@ -368,10 +368,6 @@ async function confirmComplianceSave() {
           <p class="text-muted text-sm" style="margin-bottom: 12px">
             After downloading your backup (or choosing to skip), continue to the confirmation step.
           </p>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showDeleteAll = false">Cancel</button>
-            <button class="btn btn-danger" @click="proceedToStep2">Continue Without Backup</button>
-          </div>
         </div>
 
         <div v-else>
@@ -381,16 +377,22 @@ async function confirmComplianceSave() {
           <p style="font-weight: 700; margin-bottom: 8px; font-family: var(--ff-font-mono); font-size: 13px">
             DELETE ALL LOCAL FLOWFORGE DATA
           </p>
-          <div class="form-group">
-            <input v-model="deletePhrase" type="text" placeholder="Type confirmation phrase" />
-          </div>
-          <p v-if="deleteError" class="form-error" style="margin-bottom: 8px">{{ deleteError }}</p>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showDeleteAll = false">Cancel</button>
-            <button class="btn btn-danger" :disabled="deleteLoading" @click="confirmDeleteAll">
-              {{ deleteLoading ? 'Deleting...' : 'Permanently Delete' }}
-            </button>
-          </div>
+        </div>
+
+        <div class="form-group">
+          <input v-model="deletePhrase" type="text" placeholder="Type confirmation phrase" />
+        </div>
+        <p v-if="deleteError" class="form-error" style="margin-bottom: 8px">{{ deleteError }}</p>
+
+        <div v-if="!showDeleteStep2" class="modal-actions">
+          <button class="btn btn-secondary" @click="showDeleteAll = false">Cancel</button>
+          <button class="btn btn-danger" @click="proceedToStep2">Continue Without Backup</button>
+        </div>
+        <div v-else class="modal-actions">
+          <button class="btn btn-secondary" @click="showDeleteAll = false">Cancel</button>
+          <button class="btn btn-danger" :disabled="deleteLoading" @click="confirmDeleteAll">
+            {{ deleteLoading ? 'Deleting...' : 'Permanently Delete' }}
+          </button>
         </div>
       </div>
     </div>

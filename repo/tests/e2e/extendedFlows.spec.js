@@ -104,21 +104,26 @@ test.describe('Diagram lifecycle on the canvas', () => {
     await page.getByRole('button', { name: '+ New Diagram' }).click()
     await page.locator('#new-title').fill(title)
     await page.getByRole('button', { name: /Create Blank/ }).click()
+    // Wait for the editor route — Create Blank does an async IDB write then a
+    // router.push to /diagrams/{id}. Without this wait the test can race the
+    // redirect: we navigate back to /#/diagrams and the in-flight push then
+    // sends the page on to /#/diagrams/{id}, leaving the test on the editor
+    // view (no tbody) when it tries to find the row.
+    await expect(page).toHaveURL(/#\/diagrams\/[^/]+$/)
 
     await page.goto('/#/diagrams')
     const row = page.locator('tbody tr', { hasText: title })
     await expect(row).toBeVisible()
 
     const deleteBtn = row.getByRole('button', { name: 'Delete' })
-    if (await deleteBtn.isVisible().catch(() => false)) {
-      await deleteBtn.click()
-      // Confirmation modal path — some builds show ConfirmModal, some use a direct call
-      const modal = page.locator('.modal')
-      if (await modal.isVisible().catch(() => false)) {
-        await page.locator('.modal-actions button').last().click()
-      }
-      await expect(page.locator('tbody')).not.toContainText(title)
-    }
+    await expect(deleteBtn).toBeVisible()
+    await deleteBtn.click()
+
+    // Confirmation modal — wait for it to mount before trying to confirm.
+    const modal = page.locator('.modal')
+    await expect(modal).toBeVisible({ timeout: 5_000 })
+    await page.locator('.modal-actions button').last().click()
+    await expect(page.locator('tbody')).not.toContainText(title)
   })
 })
 

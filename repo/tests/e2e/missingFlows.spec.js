@@ -464,8 +464,13 @@ test.describe('Empty state and first-run experience', () => {
     await page.locator('#reg-password').fill(password)
     await page.locator('#reg-confirm').fill(password)
     await page.getByRole('button', { name: 'Create Account' }).click()
+    // Wait for the registration to fully commit (IDB write + redirect) before
+    // navigating to /login. Without this, the in-flight PBKDF2 hash + IDB put
+    // can still be running when the subsequent Sign In tries to look up the
+    // user, causing login to fail with "Invalid username or password" and the
+    // URL to stay on /#/login.
+    await expect(page).toHaveURL(/#\/login$/)
 
-    await page.goto('/#/login')
     await page.locator('#username').fill(username)
     await page.locator('#password').fill(password)
     await page.getByRole('button', { name: 'Sign In' }).click()

@@ -213,7 +213,14 @@ describe('auth store', () => {
     await store.login('timer-user', 'StrongPass123')
     expect(store.isLocked).toBe(false)
 
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    // The 1ms timer fires almost immediately, but lock() is async and awaits
+    // an IDB write before flipping isLocked. Under heavy load (Docker, CI)
+    // that can take well over 20ms — poll for the state change instead of
+    // relying on a fixed sleep, which made this test flaky.
+    const deadline = Date.now() + 2000
+    while (Date.now() < deadline && !store.isLocked) {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    }
 
     expect(store.isLocked).toBe(true)
     expect(store.encryptionKey).toBeNull()
